@@ -61,7 +61,7 @@ async function deleteWith({
       absItemId: null,
       filePath: path.join('/media', 'Author', 'Book'),
     },
-    downloadHistory: [{ id: 'dh-1', torrentHash: 'hash-1', indexerName, indexerId, downloadStatus, completedAt: null }],
+    downloadHistory: [{ id: 'dh-1', torrentHash: 'hash-1', indexerName, indexerId, downloadStatus, completedAt: null, addedByRmab: true }],
   });
   configServiceMock.get.mockImplementation(async (key: string) => {
     if (key === 'prowlarr_indexers') {
@@ -235,7 +235,10 @@ describe('deleteRequest seeding rule', () => {
 
       expect(client.deleteDownload).toHaveBeenCalledWith('hash-1', true);
       expect(result.torrentsRemoved).toBe(1);
-      expect(prismaMock.downloadHistory.update).not.toHaveBeenCalled();
+      // Only the "gone" marker; never written back to completed for the cleanup job
+      expect(prismaMock.downloadHistory.update.mock.calls).toEqual([
+        [{ where: { id: 'dh-1' }, data: { downloadStatus: 'removed' } }],
+      ]);
     });
 
     it('still removes a finished torrent once its seeding rule is met', async () => {

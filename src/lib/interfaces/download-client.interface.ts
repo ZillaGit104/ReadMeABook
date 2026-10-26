@@ -94,7 +94,26 @@ export interface DownloadInfo {
   seedingTime?: number;
   /** Upload/download ratio (torrent clients only) */
   ratio?: number;
+  /** When the client added it (torrent clients; unset when the client reports none or 0) */
+  addedAt?: Date;
 }
+
+/** Result of addDownload */
+export interface AddDownloadResult {
+  /** Client-assigned identifier (torrent hash or NZB ID) */
+  id: string;
+  /**
+   * True when the torrent was already in the client, so RMAB did not add it (taken over).
+   * RMAB never removes such a torrent or changes it. Usenet clients: always false.
+   */
+  alreadyInClient: boolean;
+}
+
+/**
+ * Answer of the strict probe (seeding cleanup). `found: false` only on a well-formed
+ * answer without the torrent; anything unclear throws.
+ */
+export type DownloadProbe = { found: true; info: DownloadInfo } | { found: false };
 
 /** Options for adding a new download */
 export interface AddDownloadOptions {
@@ -183,9 +202,9 @@ export interface IDownloadClient {
    * Add a new download.
    * @param url - Download URL (magnet link, .torrent URL, or .nzb URL)
    * @param options - Optional download settings
-   * @returns Client-assigned download ID (torrent hash or NZB ID)
+   * @returns Client-assigned download ID, and whether the torrent was already in the client
    */
-  addDownload(url: string, options?: AddDownloadOptions): Promise<string>;
+  addDownload(url: string, options?: AddDownloadOptions): Promise<AddDownloadResult>;
 
   /**
    * Get current status of a download.
@@ -194,6 +213,13 @@ export interface IDownloadClient {
    * @returns Download info, or null if not found
    */
   getDownload(id: string): Promise<DownloadInfo | null>;
+
+  /**
+   * Strict "is it still there" check for the seeding cleanup: one request, no retries.
+   * Torrent clients only. Missing only on a well-formed answer without the torrent
+   * (contract per client: documentation/phase3/download-clients.md); anything else throws.
+   */
+  probeDownload?(id: string): Promise<DownloadProbe>;
 
   /**
    * Pause a download.
