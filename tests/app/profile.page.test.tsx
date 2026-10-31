@@ -30,6 +30,10 @@ vi.mock('@/components/layout/Header', () => ({
   Header: () => <div data-testid="header" />,
 }));
 
+vi.mock('@/components/profile/NotificationPreferencesSection', () => ({
+  NotificationPreferencesSection: () => null,
+}));
+
 vi.mock('@/components/requests/RequestCard', () => ({
   RequestCard: ({ request, showActions }: { request: any; showActions?: boolean }) => (
     <div

@@ -258,7 +258,7 @@ export function NotificationsTab() {
           {field.label}{field.required ? ' *' : field.label.includes('optional') ? '' : ' (optional)'}
         </label>
         <input
-          type={field.type === 'password' ? 'password' : 'text'}
+          type={field.type === 'password' ? 'password' : field.type === 'number' ? 'number' : 'text'}
           value={formData.config[field.name] ?? ''}
           onChange={(e) => setFormData({ ...formData, config: { ...formData.config, [field.name]: e.target.value } })}
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"

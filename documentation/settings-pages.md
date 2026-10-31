@@ -413,35 +413,36 @@ src/app/admin/settings/
 
 ## Notifications
 
-**Purpose:** Configure notification backends to receive alerts for audiobook request events.
+**Purpose:** Configure notification backends for system alerts; SMTP email also delivers request updates to individual users.
 
 **Configuration:**
-- Multiple backends per type (Discord, Pushover)
-- Per-backend event subscriptions (4 events)
-- Encrypted sensitive values (webhook URLs, API keys)
+- Multiple backends per type (Apprise, Discord, ntfy, Pushover, SMTP email)
+- Per-backend event subscriptions for system alerts
+- Encrypted sensitive values (webhook URLs, API keys, SMTP password)
 - Enable/disable toggle per backend
 
 **UI (NotificationsTab):**
-- Type selector cards: Discord (indigo "D"), Pushover (blue "P")
+- Type selector cards from provider metadata
 - Grid layout for configured backends (3 columns)
 - Card shows: type icon, name, enabled status, event count
 - Edit/delete actions per card
 
 **Modal (NotificationConfigModal):**
-- Type-specific forms (Discord: webhook/username/avatar, Pushover: keys/priority)
-- Event subscription checkboxes (4 events)
+- Dynamic provider fields; SMTP uses host, port, TLS mode, username/password, sender, and system recipients
+- Event subscription checkboxes
 - Enable/disable toggle
 - Test button (sends sample notification)
 - Password masking for sensitive values
 
 **Event Types:**
-- Request Pending Approval - Admin approval required
-- Request Approved - Approved (manual or auto)
-- Request Available - Available in library
-- Request Error - Failed at any stage
+- Request lifecycle events, issue reports, and cancellations (see [notification service](backend/services/notifications.md))
 
 **Validation:**
 - Name required
-- Discord: webhook URL required
-- Pushover: user key + app token required
+- SMTP connection fields, sender, and recipient addresses validated before save
 - At least one event selected
+
+**User Profile:**
+- Per-user controls for pending approval, approved, grabbed, available, failed, and cancelled email alerts
+- Request-available alerts default on; other events default off
+- Email is delivered to the Plex email on the request-owning account when an enabled SMTP backend exists

@@ -6,11 +6,14 @@
 import { getEncryptionService } from '../encryption.service';
 import { RMABLogger } from '../../utils/logger';
 import { prisma } from '../../db';
+import type { NotificationBackend } from '@prisma/client';
 import { INotificationProvider, NotificationPayload, ProviderMetadata } from './INotificationProvider';
 import { AppriseProvider } from './providers/apprise.provider';
 import { DiscordProvider } from './providers/discord.provider';
+import { EmailProvider } from './providers/email.provider';
 import { NtfyProvider } from './providers/ntfy.provider';
 import { PushoverProvider } from './providers/pushover.provider';
+import type { NotificationEvent } from '@/lib/constants/notification-events';
 
 const logger = RMABLogger.create('NotificationService');
 
@@ -28,8 +31,26 @@ export function getProvider(type: string): INotificationProvider | undefined {
 // Register built-in providers
 registerProvider(new AppriseProvider());
 registerProvider(new DiscordProvider());
+registerProvider(new EmailProvider());
 registerProvider(new NtfyProvider());
 registerProvider(new PushoverProvider());
+
+type UserEmailPreference =
+  | 'notifyRequestPendingApproval'
+  | 'notifyRequestApproved'
+  | 'notifyRequestGrabbed'
+  | 'notifyRequestAvailable'
+  | 'notifyRequestError'
+  | 'notifyRequestCancelled';
+
+const USER_EMAIL_PREFERENCES: Partial<Record<NotificationEvent, UserEmailPreference>> = {
+  request_pending_approval: 'notifyRequestPendingApproval',
+  request_approved: 'notifyRequestApproved',
+  request_grabbed: 'notifyRequestGrabbed',
+  request_available: 'notifyRequestAvailable',
+  request_error: 'notifyRequestError',
+  request_cancelled: 'notifyRequestCancelled',
+};
 
 export function getRegisteredProviderTypes(): string[] {
   return Array.from(providers.keys());
@@ -43,11 +64,11 @@ export class NotificationService {
   private encryptionService = getEncryptionService();
 
   /**
-   * Send notification to all enabled backends subscribed to the event
+   * Send to system backends subscribed to the event and, when opted in,
+   * to the owner of the associated request through enabled email backends.
    */
   async sendNotification(payload: NotificationPayload): Promise<void> {
     try {
-      // Get all enabled backends subscribed to this event
       const backends = await prisma.notificationBackend.findMany({
         where: {
           enabled: true,
@@ -57,24 +78,37 @@ export class NotificationService {
         },
       });
 
-      if (backends.length === 0) {
+      let ownerDelivery: { backend: NotificationBackend; payload: NotificationPayload }[] = [];
+      try {
+        ownerDelivery = await this.getOwnerEmailDelivery(payload);
+      } catch (error) {
+        logger.error('Failed to resolve owner email notification', {
+          error: error instanceof Error ? error.message : String(error),
+          event: payload.event,
+          requestId: payload.requestId,
+        });
+      }
+      const deliveries = [
+        ...backends.map((backend) => ({ backend, payload })),
+        ...ownerDelivery,
+      ];
+
+      if (deliveries.length === 0) {
         logger.debug(`No backends subscribed to event: ${payload.event}`);
         return;
       }
 
-      logger.info(`Sending notification to ${backends.length} backend(s)`, {
+      logger.info(`Sending notification to ${deliveries.length} recipient(s)`, {
         event: payload.event,
         requestId: payload.requestId,
       });
 
-      // Send to all backends in parallel (atomic per-backend)
       const results = await Promise.allSettled(
-        backends.map((backend) =>
-          this.sendToBackend(backend.type, backend.config, payload)
+        deliveries.map(({ backend, payload: deliveryPayload }) =>
+          this.sendToBackend(backend.type, backend.config, deliveryPayload)
         )
       );
 
-      // Log results
       const successful = results.filter((r) => r.status === 'fulfilled').length;
       const failed = results.filter((r) => r.status === 'rejected').length;
 
@@ -83,12 +117,11 @@ export class NotificationService {
         requestId: payload.requestId,
       });
 
-      // Log individual failures
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
-          logger.error(`Failed to send to backend ${backends[index].name}`, {
+          logger.error(`Failed to send to backend ${deliveries[index].backend.name}`, {
             error: result.reason instanceof Error ? result.reason.message : String(result.reason),
-            backend: backends[index].type,
+            backend: deliveries[index].backend.type,
           });
         }
       });
@@ -100,6 +133,54 @@ export class NotificationService {
       });
       // Don't throw - non-blocking
     }
+  }
+
+  private async getOwnerEmailDelivery(
+    payload: NotificationPayload
+  ): Promise<{ backend: NotificationBackend; payload: NotificationPayload }[]> {
+    const preference = USER_EMAIL_PREFERENCES[payload.event];
+    if (!payload.requestId || !preference) return [];
+
+    const request = await prisma.request.findUnique({
+      where: { id: payload.requestId },
+      select: {
+        user: {
+          select: {
+            plexEmail: true,
+            notifyRequestPendingApproval: true,
+            notifyRequestApproved: true,
+            notifyRequestGrabbed: true,
+            notifyRequestAvailable: true,
+            notifyRequestError: true,
+            notifyRequestCancelled: true,
+          },
+        },
+      },
+    });
+
+    const owner = request?.user;
+    const recipientEmail = owner?.plexEmail?.trim();
+    if (!owner || !recipientEmail || !owner[preference]) return [];
+
+    const emailBackends = await prisma.notificationBackend.findMany({
+      where: { type: 'email', enabled: true },
+    });
+
+    return emailBackends
+      .filter((backend) => {
+        const config = backend.config;
+        const configuredRecipients = config && typeof config === 'object' && !Array.isArray(config)
+          ? config.systemRecipients
+          : undefined;
+        const systemRecipients = typeof configuredRecipients === 'string'
+          ? configuredRecipients.split(',').map((recipient) => recipient.trim().toLowerCase())
+          : [];
+        return !systemRecipients.includes(recipientEmail.toLowerCase());
+      })
+      .map((backend) => ({
+        backend,
+        payload: { ...payload, recipientEmail },
+      }));
   }
 
   /**

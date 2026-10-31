@@ -6,7 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '@/lib/middleware/auth';
 import { prisma } from '@/lib/db';
-import { getNotificationService, getRegisteredProviderTypes } from '@/lib/services/notification';
+import { getNotificationService, getProvider, getRegisteredProviderTypes } from '@/lib/services/notification';
+import { NotificationConfigurationError } from '@/lib/services/notification/INotificationProvider';
 import { NOTIFICATION_EVENT_KEYS } from '@/lib/constants/notification-events';
 import { RMABLogger } from '@/lib/utils/logger';
 import { z } from 'zod';
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { type, name, config, events, enabled } = CreateBackendSchema.parse(body);
 
+        getProvider(type)?.validateConfig?.(config);
         const notificationService = getNotificationService();
 
         // Encrypt sensitive config values
@@ -103,6 +105,13 @@ export async function POST(request: NextRequest) {
           },
         }, { status: 201 });
       } catch (error) {
+        if (error instanceof NotificationConfigurationError) {
+          return NextResponse.json(
+            { error: 'ValidationError', message: error.message },
+            { status: 400 }
+          );
+        }
+
         logger.error('Failed to create notification backend', {
           error: error instanceof Error ? error.message : String(error),
         });

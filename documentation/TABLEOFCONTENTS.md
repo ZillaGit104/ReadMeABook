@@ -82,8 +82,9 @@
 - **Job-aware database persistence** → [backend/services/logging.md](backend/services/logging.md)
 
 ## Notifications
-- **Notification backends (Discord, Pushover)** → [backend/services/notifications.md](backend/services/notifications.md)
+- **Notification backends (Apprise, Discord, ntfy, Pushover, SMTP email)** → [backend/services/notifications.md](backend/services/notifications.md)
 - **Event types, triggers, message formatting** → [backend/services/notifications.md](backend/services/notifications.md)
+- **SMTP email backend, per-user email alert preferences** → [backend/services/notifications.md](backend/services/notifications.md), [frontend/components.md](frontend/components.md)
 - **Notification settings UI** → [settings-pages.md](settings-pages.md)
 
 ## Frontend Components

@@ -53,6 +53,14 @@ model User {
   // Request approval preferences
   autoApproveRequests Boolean? @map("auto_approve_requests") // null = use global setting, true = auto-approve, false = require approval
 
+  // Per-user email notification preferences
+  notifyRequestPendingApproval Boolean @default(false) @map("notify_request_pending_approval")
+  notifyRequestApproved        Boolean @default(false) @map("notify_request_approved")
+  notifyRequestGrabbed          Boolean @default(false) @map("notify_request_grabbed")
+  notifyRequestAvailable        Boolean @default(true) @map("notify_request_available")
+  notifyRequestError            Boolean @default(false) @map("notify_request_error")
+  notifyRequestCancelled        Boolean @default(false) @map("notify_request_cancelled")
+
   // Fine-grained permissions
   interactiveSearchAccess Boolean? @map("interactive_search_access") // null = use global setting, true = allow, false = deny
   downloadAccess          Boolean? @map("download_access")           // null = use global setting, true = allow, false = deny

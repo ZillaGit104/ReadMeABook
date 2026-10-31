@@ -32,7 +32,7 @@ vi.mock('@/lib/middleware/auth', () => ({
 
 vi.mock('@/lib/services/notification', () => ({
   getNotificationService: () => notificationServiceMock,
-  getRegisteredProviderTypes: () => ['discord', 'ntfy', 'pushover'],
+  getRegisteredProviderTypes: () => ['discord', 'email', 'ntfy', 'pushover'],
 }));
 
 describe('Admin notifications test route', () => {

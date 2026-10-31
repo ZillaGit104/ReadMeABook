@@ -35,6 +35,7 @@ const createModelMock = (): PrismaModelMock => ({
 
 export const createPrismaMock = () => ({
   configuration: createModelMock(),
+  notificationBackend: createModelMock(),
   user: createModelMock(),
   request: createModelMock(),
   audiobook: createModelMock(),

@@ -12,6 +12,7 @@ export type {
   ProviderConfigField,
   ProviderMetadata,
 } from './INotificationProvider';
+export { NotificationConfigurationError } from './INotificationProvider';
 
 // Centralized event constants (re-exported for convenience)
 export {
@@ -44,3 +45,4 @@ export { AppriseProvider } from './providers/apprise.provider';
 export { DiscordProvider } from './providers/discord.provider';
 export { NtfyProvider } from './providers/ntfy.provider';
 export { PushoverProvider } from './providers/pushover.provider';
+export { EmailProvider } from './providers/email.provider';

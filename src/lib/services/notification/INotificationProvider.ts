@@ -20,6 +20,7 @@ export interface NotificationPayload {
   message?: string; // For error/issue events
   requestType?: string; // 'audiobook' | 'ebook' — drives type-specific titles via getEventTitle()
   timestamp: Date;
+  recipientEmail?: string; // Set only for owner-targeted email notifications
 }
 
 // Provider config field definition for dynamic UI rendering
@@ -53,6 +54,16 @@ export interface INotificationProvider {
   /** Self-describing metadata for UI and validation */
   metadata: ProviderMetadata;
 
+  /** Optional server-side validation performed before saving provider config */
+  validateConfig?(config: Record<string, any>): void;
+
   /** Send notification with already-decrypted config */
   send(config: Record<string, any>, payload: NotificationPayload): Promise<void>;
+}
+
+export class NotificationConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotificationConfigurationError';
+  }
 }

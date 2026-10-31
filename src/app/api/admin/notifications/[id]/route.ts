@@ -6,7 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '@/lib/middleware/auth';
 import { prisma } from '@/lib/db';
-import { getNotificationService } from '@/lib/services/notification';
+import { getNotificationService, getProvider } from '@/lib/services/notification';
+import { NotificationConfigurationError } from '@/lib/services/notification/INotificationProvider';
 import { NOTIFICATION_EVENT_KEYS } from '@/lib/constants/notification-events';
 import { RMABLogger } from '@/lib/utils/logger';
 import { z } from 'zod';
@@ -114,6 +115,8 @@ export async function PUT(
             }
           });
 
+          getProvider(existing.type)?.validateConfig?.(updatedConfig);
+
           // Encrypt new/changed values
           finalConfig = notificationService.encryptConfig(existing.type, updatedConfig);
         }
@@ -144,6 +147,13 @@ export async function PUT(
           },
         });
       } catch (error) {
+        if (error instanceof NotificationConfigurationError) {
+          return NextResponse.json(
+            { error: 'ValidationError', message: error.message },
+            { status: 400 }
+          );
+        }
+
         logger.error('Failed to update notification backend', {
           error: error instanceof Error ? error.message : String(error),
         });

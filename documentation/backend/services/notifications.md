@@ -1,23 +1,27 @@
 # Notification System
 
-**Status:** ✅ Implemented | Extensible notification system with Discord, ntfy, and Pushover support
+**Status:** ✅ Implemented | Extensible system alerts via Apprise, Discord, ntfy, Pushover, and SMTP email
 
 ## Overview
-Sends notifications for audiobook request events (pending approval, approved, available, error) to configured backends. Non-blocking, atomic per-backend failure handling. Proper notification timing for all request flows including interactive search.
+Sends request/system events to configured backends asynchronously. Email supports system recipients and per-user request alerts, with individual profile preferences and owner-only delivery.
 
 ## Key Details
-- **Backends:** Apprise (API), Discord (webhooks), ntfy (API), Pushover (API)
-- **Events:** request_pending_approval, request_approved, request_grabbed, request_available, request_error, issue_reported
+- **Backends:** Apprise (API), Discord (webhooks), ntfy (API), Pushover (API), SMTP email
+- **Events:** request_pending_approval, request_approved, request_grabbed, request_available, request_error, request_cancelled, issue_reported
 - **Encryption:** AES-256-GCM for sensitive config (webhook URLs, API keys, notification URLs)
 - **Delivery:** Async via Bull job queue (priority 5)
 - **Failure Handling:** Non-blocking, Promise.allSettled (one backend fails, others succeed)
+- **SMTP:** STARTTLS or implicit TLS only; SMTP password is encrypted and masked. System recipients are a comma-separated address list.
+- **SMTP validation:** Host, port, TLS mode, username/password, sender, and recipient addresses are validated before saving.
+- **Per-user email:** Uses the request owner's Plex email and independent preferences; `request_available` defaults enabled, other request events default disabled. Admin event subscriptions do not control owner-targeted delivery.
+- **Missing email/backend:** No owner email delivery; existing system backend deliveries are unaffected.
 
 ## Database Schema
 
 ```prisma
 model NotificationBackend {
   id        String   @id @default(uuid())
-  type      String   // 'apprise' | 'discord' | 'ntfy' | 'pushover'
+  type      String   // 'apprise' | 'discord' | 'email' | 'ntfy' | 'pushover'
   name      String   // User-friendly label
   config    Json     // Encrypted sensitive values
   events    Json     // Array of subscribed events
@@ -26,6 +30,11 @@ model NotificationBackend {
   updatedAt DateTime @updatedAt
 }
 ```
+
+**User email preferences (`User`):**
+- `notifyRequestPendingApproval`, `notifyRequestApproved`, `notifyRequestGrabbed`, `notifyRequestError`, `notifyRequestCancelled`: Boolean, default `false`
+- `notifyRequestAvailable`: Boolean, default `true`
+- Database migration: `20261027000000_add_user_email_notification_preferences`
 
 ## Event Types
 
@@ -36,6 +45,7 @@ model NotificationBackend {
 | request_grabbed | Torrent/NZB added to download client | Download handed off to configured download client (title resolves by type) — **opt-in: existing backends do not auto-subscribe; enable in Settings** |
 | request_available | Plex/ABS scan or ebook download completes | Request available (title resolves by type) |
 | request_error | Download/import fails | Request failed at any stage |
+| request_cancelled | User cancels a request | Request cancelled |
 | issue_reported | User reports issue | User reports problem with available audiobook |
 
 **Dynamic Titles:** Events can define `titleByRequestType` in `notification-events.ts` for type-specific titles.
@@ -90,6 +100,11 @@ model NotificationBackend {
 - After user reports issue with available audiobook → issue_reported
 - Payload: issue ID (as requestId), book title/author, reporter username, reason (as message)
 
+**Owner Email Delivery (send-notification.processor.ts)**
+- Request events look up the request owner and selected email preference.
+- Sends only to that owner's `plexEmail`; issue reports and system-only events are not owner-routed.
+- Email backends must be enabled. System recipient delivery remains controlled by backend event subscriptions.
+
 ## Configuration Encryption
 
 **Encrypted Values:**
@@ -97,6 +112,7 @@ model NotificationBackend {
 - Discord: `webhookUrl`
 - ntfy: `accessToken`
 - Pushover: `userKey`, `appToken`
+- Email: `password`
 
 **Pattern:** `iv:authTag:encryptedData` (base64)
 
@@ -132,6 +148,11 @@ model NotificationBackend {
 - Priority: Normal (0) for pending/approved, High (1) for available/error
 - Format: Event title + book details + user + error (if applicable)
 
+**Email (SMTP, UTF-8 text/plain):**
+- Uses server/port, TLS mode (STARTTLS or implicit TLS), SMTP credentials, sender identity, and system recipients.
+- System alerts go to configured system recipients for subscribed events.
+- Owner alerts override recipients with the request owner's Plex email and include event/book/requester details.
+
 ## API Endpoints
 
 **GET /api/admin/notifications**
@@ -155,20 +176,30 @@ model NotificationBackend {
 - Body: `{type, config}` (plaintext for testing)
 - Sends test payload: "The Hitchhiker's Guide to the Galaxy" by Douglas Adams
 
+**GET /api/user/notification-preferences**
+- Authenticated user only; returns their email, email-backend-enabled state, and event preferences.
+
+**PUT /api/user/notification-preferences**
+- Authenticated user only; updates one or more Boolean preferences. Unknown fields are rejected.
+
 ## UI Components
 
 **NotificationsTab (src/app/admin/settings/tabs/NotificationsTab)**
-- Type selector cards (Discord: indigo "D", Pushover: blue "P")
+- Type selector cards and backend forms rendered from provider metadata
 - Configured backends grid (3 columns)
 - Backend cards: type icon, name, enabled status, event count, edit/delete actions
 - Modal: type-specific forms, event checkboxes, enable toggle, test button
 
 **Modal Features:**
-- Type-first selection (user clicks "Add Discord" or "Add Pushover")
+- Type-first selection from registered provider metadata
 - Password inputs for sensitive values
-- Event subscription checkboxes (5 events, default: available + error)
+- Event subscription checkboxes (default: available + error)
 - Test button (sends synchronous test notification)
 - Save button (validates and creates/updates backend)
+
+**Profile (NotificationPreferencesSection):**
+- Per-user controls for pending approval, approved, grabbed, available, failed, and cancelled request alerts.
+- Shows the signed-in user's Plex email and whether an enabled email backend exists.
 
 ## Job Queue Integration
 
@@ -179,7 +210,7 @@ model NotificationBackend {
 {
   jobId?: string,
   event: string,
-  requestId: string,
+  requestId?: string,
   title: string,
   author: string,
   userName: string,
@@ -188,6 +219,8 @@ model NotificationBackend {
   timestamp: Date
 }
 ```
+
+`recipientEmail` is attached only at dispatch time for owner-targeted email delivery; it is not queued.
 
 **Processor:** `src/lib/processors/send-notification.processor.ts`
 - Calls NotificationService.sendNotification()
@@ -207,6 +240,7 @@ src/lib/services/notification/
   providers/
     apprise.provider.ts             # Apprise API (100+ services)
     discord.provider.ts             # Discord webhook
+    email.provider.ts               # SMTP with STARTTLS/implicit TLS
     ntfy.provider.ts                # ntfy API
     pushover.provider.ts            # Pushover API
 ```
@@ -217,6 +251,7 @@ src/lib/services/notification/
 - `type: string` — provider identifier (registry key)
 - `sensitiveFields: string[]` — fields needing encryption/masking
 - `metadata: ProviderMetadata` — self-describing UI/validation metadata
+- `validateConfig?(config)` — optional server-side configuration validation
 - `send(config, payload): Promise<void>` — receives decrypted config
 
 **ProviderMetadata:** `{ type, displayName, description, iconLabel, iconColor, configFields[] }`
@@ -236,13 +271,13 @@ src/lib/services/notification/
 ## Extensibility
 
 **Adding New Backend (2 steps):**
-1. Create `providers/email.provider.ts` implementing `INotificationProvider`:
-   - Set `type = 'email'`, `sensitiveFields = ['smtpPassword']`
+1. Create `providers/<provider>.provider.ts` implementing `INotificationProvider`:
+   - Set a unique `type`, `sensitiveFields`, and provider metadata/config fields
    - Set `metadata` with displayName, description, iconLabel, iconColor, configFields
-   - Implement `send()` with email-specific logic
-2. Register in `notification.service.ts`: `registerProvider(new EmailProvider())` + re-export from `index.ts`
+   - Implement `send()` with provider-specific delivery
+2. Register it in `notification.service.ts` and export it from `index.ts`
 
-No UI changes, no API route changes, no Zod schema changes needed — the UI renders dynamically from provider metadata.
+The admin UI renders providers dynamically from metadata. Add separate owner-routing logic only when a backend needs per-user recipients.
 
 **Adding New Event (e.g., download_complete):**
 1. Add entry to `NOTIFICATION_EVENTS` in `notification-events.ts` (label, title, emoji, severity, priority)

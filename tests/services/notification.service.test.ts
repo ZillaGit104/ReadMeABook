@@ -134,6 +134,84 @@ describe('NotificationService', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
+    it('sends an opted-in request email only to its owner', async () => {
+      const emailBackend = {
+        id: 'email-1',
+        type: 'email',
+        name: 'Email',
+        config: { systemRecipients: 'admin@example.com' },
+        events: [],
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      prismaMock.notificationBackend.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([emailBackend]);
+      prismaMock.request.findUnique.mockResolvedValue({
+        user: {
+          plexEmail: 'reader@example.com',
+          notifyRequestPendingApproval: false,
+          notifyRequestApproved: false,
+          notifyRequestGrabbed: false,
+          notifyRequestAvailable: true,
+          notifyRequestError: false,
+          notifyRequestCancelled: false,
+        },
+      });
+
+      const { NotificationService } = await import('@/lib/services/notification');
+      const service = new NotificationService();
+      const sendSpy = vi.spyOn(service, 'sendToBackend').mockResolvedValue(undefined);
+
+      await service.sendNotification({
+        event: 'request_available',
+        requestId: 'req-1',
+        title: 'Test Book',
+        author: 'Test Author',
+        userName: 'Test User',
+        timestamp: new Date(),
+      });
+
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+      expect(sendSpy).toHaveBeenCalledWith(
+        'email',
+        emailBackend.config,
+        expect.objectContaining({ recipientEmail: 'reader@example.com' })
+      );
+    });
+
+    it('does not send per-user email after the owner opts out', async () => {
+      prismaMock.notificationBackend.findMany.mockResolvedValue([]);
+      prismaMock.request.findUnique.mockResolvedValue({
+        user: {
+          plexEmail: 'reader@example.com',
+          notifyRequestPendingApproval: false,
+          notifyRequestApproved: false,
+          notifyRequestGrabbed: false,
+          notifyRequestAvailable: false,
+          notifyRequestError: false,
+          notifyRequestCancelled: false,
+        },
+      });
+
+      const { NotificationService } = await import('@/lib/services/notification');
+      const service = new NotificationService();
+      const sendSpy = vi.spyOn(service, 'sendToBackend').mockResolvedValue(undefined);
+
+      await service.sendNotification({
+        event: 'request_available',
+        requestId: 'req-1',
+        title: 'Test Book',
+        author: 'Test Author',
+        userName: 'Test User',
+        timestamp: new Date(),
+      });
+
+      expect(sendSpy).not.toHaveBeenCalled();
+      expect(prismaMock.notificationBackend.findMany).toHaveBeenCalledTimes(1);
+    });
+
     it('continues sending to other backends if one fails', async () => {
       prismaMock.notificationBackend.findMany.mockResolvedValue([
         {
@@ -542,6 +620,19 @@ describe('NotificationService', () => {
       expect(encrypted.appToken).toBe('enc:app456');
       expect(encrypted.priority).toBe(1); // Not encrypted
     });
+
+    it('encrypts the SMTP password', async () => {
+      const { NotificationService } = await import('@/lib/services/notification');
+      const service = new NotificationService();
+
+      const encrypted = service.encryptConfig('email', {
+        password: 'smtp-secret',
+        host: 'smtp.example.com',
+      });
+
+      expect(encrypted.password).toBe('enc:smtp-secret');
+      expect(encrypted.host).toBe('smtp.example.com');
+    });
   });
 
   describe('getRegisteredProviderTypes', () => {
@@ -553,7 +644,8 @@ describe('NotificationService', () => {
       expect(types).toContain('discord');
       expect(types).toContain('ntfy');
       expect(types).toContain('pushover');
-      expect(types).toHaveLength(4);
+      expect(types).toContain('email');
+      expect(types).toHaveLength(5);
     });
   });
 
@@ -562,7 +654,7 @@ describe('NotificationService', () => {
       const { getAllProviderMetadata } = await import('@/lib/services/notification');
       const metadata = getAllProviderMetadata();
 
-      expect(metadata).toHaveLength(4);
+      expect(metadata).toHaveLength(5);
 
       const apprise = metadata.find((m) => m.type === 'apprise');
       expect(apprise).toBeDefined();
@@ -586,6 +678,11 @@ describe('NotificationService', () => {
       expect(pushover).toBeDefined();
       expect(pushover!.displayName).toBe('Pushover');
       expect(pushover!.iconLabel).toBe('P');
+
+      const email = metadata.find((m) => m.type === 'email');
+      expect(email).toBeDefined();
+      expect(email!.displayName).toBe('Email (SMTP)');
+      expect(email!.configFields.find((field) => field.name === 'password')?.type).toBe('password');
     });
 
     it('includes config field definitions with correct properties', async () => {
@@ -719,6 +816,19 @@ describe('NotificationService', () => {
       expect(masked.userKey).toBe('••••••••');
       expect(masked.appToken).toBe('••••••••');
       expect(masked.priority).toBe(1); // Not masked
+    });
+
+    it('masks the SMTP password', async () => {
+      const { NotificationService } = await import('@/lib/services/notification');
+      const service = new NotificationService();
+
+      const masked = service.maskConfig('email', {
+        password: 'enc:smtp-secret',
+        host: 'smtp.example.com',
+      });
+
+      expect(masked.password).toBe('••••••••');
+      expect(masked.host).toBe('smtp.example.com');
     });
   });
 });

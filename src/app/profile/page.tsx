@@ -13,6 +13,7 @@ import { useRequests } from '@/lib/hooks/useRequests';
 import { cn } from '@/lib/utils/cn';
 import { ShelvesSection } from '@/components/profile/ShelvesSection';
 import { ApiTokensSection } from '@/components/profile/ApiTokensSection';
+import { NotificationPreferencesSection } from '@/components/profile/NotificationPreferencesSection';
 import { WatchedSeriesSection, WatchedAuthorsSection } from '@/components/profile/WatchedListsSection';
 
 const statConfig = [
@@ -149,6 +150,9 @@ export default function ProfilePage() {
 
         {/* Watched Authors */}
         <WatchedAuthorsSection />
+
+        {/* Email Notification Preferences */}
+        <NotificationPreferencesSection />
 
         {/* Active Downloads */}
         {activeDownloads.length > 0 && (
