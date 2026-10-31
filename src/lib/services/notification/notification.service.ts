@@ -6,7 +6,6 @@
 import { getEncryptionService } from '../encryption.service';
 import { RMABLogger } from '../../utils/logger';
 import { prisma } from '../../db';
-import type { NotificationBackend } from '@prisma/client';
 import { INotificationProvider, NotificationPayload, ProviderMetadata } from './INotificationProvider';
 import { AppriseProvider } from './providers/apprise.provider';
 import { DiscordProvider } from './providers/discord.provider';
@@ -51,6 +50,8 @@ const USER_EMAIL_PREFERENCES: Partial<Record<NotificationEvent, UserEmailPrefere
   request_error: 'notifyRequestError',
   request_cancelled: 'notifyRequestCancelled',
 };
+
+type NotificationBackend = Awaited<ReturnType<typeof prisma.notificationBackend.findMany>>[number];
 
 export function getRegisteredProviderTypes(): string[] {
   return Array.from(providers.keys());
