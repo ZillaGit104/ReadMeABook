@@ -40,6 +40,7 @@
 **POST /api/setup/complete**
 - Saves all config to database
 - Creates admin user account
+- Accepts an optional admin email for personal request notifications; it can be added later in Profile.
 - Enables auto jobs (Plex scan, Audible refresh)
 - Marks setup as complete
 - Returns JWT tokens for auto-login
@@ -71,6 +72,7 @@ interface SetupState {
 **Prowlarr:** Valid URL, non-empty API key, connection succeeds, ≥1 indexer selected with priority 1-25, seedingTimeMinutes ≥0, rssEnabled boolean (RSS timing defaults to 15min, configurable in scheduled jobs)
 **Download Client:** Valid URL, credentials required, connection succeeds
 **Paths:** Absolute paths, writable
+**Admin email:** Optional; validated when provided and used for personal request notifications.
 
 ## OIDC-Only Setup Flow
 

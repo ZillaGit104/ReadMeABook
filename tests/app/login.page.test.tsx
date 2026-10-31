@@ -412,7 +412,7 @@ describe('LoginPage', () => {
     const setAuthDataMock = vi.fn();
     setMockAuthState({ setAuthData: setAuthDataMock, isLoading: false });
 
-    const fetchMock = vi.fn(async (input: RequestInfo) => {
+    const fetchMock = vi.fn(async (input: RequestInfo, _init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.url;
       if (url === '/api/auth/providers') return makeJsonResponse(providers);
       if (url === '/api/audiobooks/covers') return makeJsonResponse({ success: true, covers: [] });
@@ -436,6 +436,7 @@ describe('LoginPage', () => {
       await screen.findByRole('button', { name: /Don't have an account\? Register/i })
     );
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'new-user' } });
+    fireEvent.change(screen.getByLabelText('Email (optional)'), { target: { value: 'reader@example.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password1' } });
     fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'password1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Register' }));
@@ -446,6 +447,13 @@ describe('LoginPage', () => {
         'reg-access'
       );
       expect(routerMock.push).toHaveBeenCalledWith('/');
+    });
+
+    const registrationRequest = fetchMock.mock.calls.find(
+      ([input]) => (typeof input === 'string' ? input : input.url) === '/api/auth/register'
+    );
+    expect(JSON.parse(registrationRequest![1]!.body as string)).toMatchObject({
+      email: 'reader@example.com',
     });
 
     expect(localStorage.getItem('accessToken')).toBe('reg-access');

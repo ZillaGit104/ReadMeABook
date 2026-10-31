@@ -77,7 +77,7 @@ describe('Setup routes', () => {
     const response = await POST({
       json: vi.fn().mockResolvedValue({
         backendMode: 'plex',
-        admin: { username: 'admin', password: 'pass' },
+        admin: { username: 'admin', email: 'admin@example.com', password: 'pass' },
         plex: { url: 'http://plex', token: 'token', audiobook_library_id: 'lib', machine_identifier: 'machine' },
         prowlarr: { url: 'http://prowlarr', api_key: 'key', indexers: [{ id: 1 }] },
         downloadClient: { type: 'qbittorrent', url: 'http://qbt', username: 'u', password: 'p' },
@@ -88,6 +88,11 @@ describe('Setup routes', () => {
 
     expect(payload.success).toBe(true);
     expect(payload.accessToken).toBe('access-token');
+    expect(prismaMock.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ plexEmail: 'admin@example.com' }),
+      })
+    );
     expect(prismaMock.configuration.upsert).toHaveBeenCalled();
   });
 
@@ -192,5 +197,4 @@ describe('Setup routes', () => {
     expect(payload.accessToken).toBeUndefined();
   });
 });
-
 

@@ -13,7 +13,8 @@ Sends request/system events to configured backends asynchronously. Email support
 - **Failure Handling:** Non-blocking, Promise.allSettled (one backend fails, others succeed)
 - **SMTP:** STARTTLS or implicit TLS only; SMTP password is encrypted and masked. System recipients are a comma-separated address list.
 - **SMTP validation:** Host, port, TLS mode, username/password, sender, and recipient addresses are validated before saving.
-- **Per-user email:** Uses the request owner's Plex email and independent preferences; `request_available` defaults enabled, other request events default disabled. Admin event subscriptions do not control owner-targeted delivery.
+- **Per-user email:** Uses the request owner's account email (`plexEmail`, sourced from Plex/OIDC or entered by local users) and independent preferences; `request_available` defaults enabled, other request events default disabled. Admin event subscriptions do not control owner-targeted delivery.
+- **Local users:** May enter an optional email during registration or setup-admin creation, or add/update it in Profile. Email enables personal request alerts; profile event controls are hidden until an address is saved.
 - **Missing email/backend:** No owner email delivery; existing system backend deliveries are unaffected.
 
 ## Database Schema
@@ -199,7 +200,8 @@ model NotificationBackend {
 
 **Profile (NotificationPreferencesSection):**
 - Per-user controls for pending approval, approved, grabbed, available, failed, and cancelled request alerts.
-- Shows the signed-in user's Plex email and whether an enabled email backend exists.
+- Local accounts can add/update their optional email. Event controls are hidden until an address is present.
+- Shows the signed-in user's destination email and whether an enabled email backend exists.
 
 ## Job Queue Integration
 

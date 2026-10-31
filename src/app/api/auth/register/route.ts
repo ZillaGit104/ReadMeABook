@@ -50,10 +50,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { username, password } = await request.json();
+    const { username, password, email } = await request.json();
 
     const provider = new LocalAuthProvider();
-    const result = await provider.register({ username, password });
+    const result = await provider.register({ username, password, email });
 
     if (!result.success) {
       if (result.requiresApproval) {

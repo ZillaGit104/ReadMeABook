@@ -289,6 +289,48 @@ describe('LocalAuthProvider', () => {
     );
   });
 
+  it('stores a normalized optional email address for personal notifications', async () => {
+    configMock.get.mockResolvedValueOnce('true');
+    configMock.get.mockResolvedValueOnce('false');
+    prismaMock.user.findFirst.mockResolvedValue(null);
+    prismaMock.user.count.mockResolvedValue(1);
+    prismaMock.user.create.mockResolvedValue({
+      id: 'user-email',
+      plexId: 'local-reader',
+      plexUsername: 'reader',
+      role: 'user',
+    });
+    bcryptHash.mockResolvedValue('hash');
+
+    const { LocalAuthProvider } = await import('@/lib/services/auth/LocalAuthProvider');
+    const provider = new LocalAuthProvider();
+    const result = await provider.register({
+      username: 'reader',
+      password: 'password123',
+      email: '  Reader@example.com  ',
+    });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ plexEmail: 'Reader@example.com' }),
+      })
+    );
+  });
+
+  it('rejects invalid optional email addresses', async () => {
+    const { LocalAuthProvider } = await import('@/lib/services/auth/LocalAuthProvider');
+    const provider = new LocalAuthProvider();
+    const result = await provider.register({
+      username: 'reader',
+      password: 'password123',
+      email: 'not-an-email',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/email address is invalid/i);
+  });
+
   it('rejects duplicate username case-insensitively on registration', async () => {
     configMock.get.mockResolvedValueOnce('true'); // registration enabled
     prismaMock.user.findFirst.mockResolvedValue({ id: 'user-existing' });
@@ -402,6 +444,5 @@ describe('LocalAuthProvider', () => {
     expect(pendingAccess).toBe(false);
   });
 });
-
 
 

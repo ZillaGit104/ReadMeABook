@@ -45,6 +45,7 @@ interface SetupState {
 
   // Admin account (for Plex mode and ABS + Manual mode)
   adminUsername: string;
+  adminEmail: string;
   adminPassword: string;
 
   // Plex config (if mode=plex)
@@ -120,6 +121,7 @@ export default function SetupWizard() {
 
     // Admin account
     adminUsername: 'admin',
+    adminEmail: '',
     adminPassword: '',
 
     // Plex config
@@ -253,6 +255,7 @@ export default function SetupWizard() {
         // Plex mode configuration
         payload.admin = {
           username: state.adminUsername,
+          email: state.adminEmail,
           password: state.adminPassword,
         };
         payload.plex = {
@@ -305,6 +308,7 @@ export default function SetupWizard() {
           // Create admin account for manual auth
           payload.admin = {
             username: state.adminUsername,
+            email: state.adminEmail,
             password: state.adminPassword,
           };
         }
@@ -387,6 +391,7 @@ export default function SetupWizard() {
         return (
           <AdminAccountStep
             adminUsername={state.adminUsername}
+            adminEmail={state.adminEmail}
             adminPassword={state.adminPassword}
             onUpdate={updateField}
             onNext={() => goToStep(currentStepNumber + 1)}
@@ -491,6 +496,7 @@ export default function SetupWizard() {
           return (
             <AdminAccountStep
               adminUsername={state.adminUsername}
+              adminEmail={state.adminEmail}
               adminPassword={state.adminPassword}
               onUpdate={updateField}
               onNext={() => goToStep(currentStepNumber + 1)}

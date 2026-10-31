@@ -22,11 +22,13 @@ const AdminAccountHarness = ({
   initialPassword?: string;
 }) => {
   const [adminUsername, setAdminUsername] = useState(initialUsername);
+  const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState(initialPassword);
 
   return (
     <AdminAccountStep
       adminUsername={adminUsername}
+      adminEmail={adminEmail}
       adminPassword={adminPassword}
       onUpdate={(field, value) => {
         if (field === 'adminUsername') {
@@ -34,6 +36,9 @@ const AdminAccountHarness = ({
         }
         if (field === 'adminPassword') {
           setAdminPassword(value);
+        }
+        if (field === 'adminEmail') {
+          setAdminEmail(value);
         }
       }}
       onNext={onNext}
@@ -49,6 +54,7 @@ describe('AdminAccountStep', () => {
     render(
       <AdminAccountStep
         adminUsername="ad"
+        adminEmail=""
         adminPassword="short"
         onUpdate={vi.fn()}
         onNext={onNext}
@@ -82,5 +88,27 @@ describe('AdminAccountStep', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(onNext).toHaveBeenCalled();
+  });
+
+  it('validates an optional email when provided', async () => {
+    const onNext = vi.fn();
+    render(
+      <AdminAccountStep
+        adminUsername="admin"
+        adminEmail="bad-email"
+        adminPassword="supersecret"
+        onUpdate={vi.fn()}
+        onNext={onNext}
+        onBack={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Confirm Password'), {
+      target: { value: 'supersecret' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByText('Enter a valid email address')).toBeInTheDocument();
+    expect(onNext).not.toHaveBeenCalled();
   });
 });

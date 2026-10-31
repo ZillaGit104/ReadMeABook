@@ -12,6 +12,7 @@ import { getPlexService } from '@/lib/integrations/plex.service';
 import { getClientDisplayName } from '@/lib/interfaces/download-client.interface';
 import { requireSetupIncomplete } from '@/lib/middleware/auth';
 import { RMABLogger } from '@/lib/utils/logger';
+import { z } from 'zod';
 
 const logger = RMABLogger.create('API.Setup.Complete');
 
@@ -37,6 +38,20 @@ export async function POST(request: NextRequest) {
     if (!backendMode || !['plex', 'audiobookshelf'].includes(backendMode)) {
       return NextResponse.json(
         { success: false, error: 'Invalid or missing backend mode' },
+        { status: 400 }
+      );
+    }
+
+    const adminEmail = typeof admin?.email === 'string' ? admin.email.trim() : '';
+    if (admin?.email != null && typeof admin.email !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'Admin email must be a valid email address' },
+        { status: 400 }
+      );
+    }
+    if (adminEmail && !z.string().email().safeParse(adminEmail).success) {
+      return NextResponse.json(
+        { success: false, error: 'Admin email must be a valid email address' },
         { status: 400 }
       );
     }
@@ -149,7 +164,7 @@ export async function POST(request: NextRequest) {
         data: {
           plexId: `local-${normalizedAdminUsername}`,
           plexUsername: normalizedAdminUsername,
-          plexEmail: null,
+          plexEmail: adminEmail || null,
           role: 'admin',
           isSetupAdmin: true, // Mark as setup admin - role cannot be changed
           avatarUrl: null,

@@ -23,6 +23,7 @@ interface ReviewStepProps {
     authMethod: 'oidc' | 'manual' | 'both';
     oidcProviderName: string;
     adminUsername: string;
+    adminEmail: string;
 
     // Common config
     prowlarrUrl: string;
@@ -145,6 +146,14 @@ export function ReviewStep({ config, loading, error, onComplete, onBack }: Revie
                     <dt className="text-sm text-gray-600 dark:text-gray-400">Admin Username:</dt>
                     <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {config.adminUsername}
+                    </dd>
+                  </div>
+                )}
+                {config.adminEmail && (
+                  <div className="flex justify-between">
+                    <dt className="text-sm text-gray-600 dark:text-gray-400">Admin Email:</dt>
+                    <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {config.adminEmail}
                     </dd>
                   </div>
                 )}

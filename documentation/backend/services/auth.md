@@ -115,6 +115,7 @@ Handles authentication and authorization: Multiple auth providers (Plex OAuth, O
 - Subsequent users default to 'user' role
 - Local admin uses username/password authentication (stored in `authToken` field as bcrypt hash)
 - `plexId` format: `local-{username}` for local admin accounts
+- ABS manual-registration users may optionally provide an email during registration; it can also be added or changed in Profile and enables personal request notifications.
 
 ## Local Admin Authentication
 
@@ -132,6 +133,7 @@ Handles authentication and authorization: Multiple auth providers (Plex OAuth, O
 - Validates current password before allowing change
 - Properly decrypts stored password hash before bcrypt comparison
 - Available to all local users (setup admin, locally registered users)
+- Email address is optional for local accounts; users without one cannot configure personal email notification categories.
 
 ## Plex Home Profile Support
 

@@ -124,12 +124,16 @@ function PermissionBadge({
 function UserActionsCell({ user, onEdit, onDelete }: { user: User; onEdit: (u: User) => void; onDelete: (u: User) => void }) {
   if (user.isSetupAdmin) {
     return (
-      <span className="inline-flex items-center gap-1 text-gray-400 dark:text-gray-600 cursor-not-allowed" title="Setup admin role cannot be changed">
+      <button
+        onClick={() => onEdit(user)}
+        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+        title="Edit setup admin email"
+      >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
-        <span>Protected</span>
-      </span>
+        <span>Edit Email</span>
+      </button>
     );
   }
   if (user.authProvider === 'oidc') {
@@ -204,6 +208,7 @@ function AdminUsersPageContent() {
     user: User | null;
   }>({ isOpen: false, user: null });
   const [editRole, setEditRole] = useState<'user' | 'admin'>('user');
+  const [editEmail, setEditEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [processingUserId, setProcessingUserId] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -385,6 +390,7 @@ function AdminUsersPageContent() {
 
   const showEditDialog = (user: User) => {
     setEditRole(user.role);
+    setEditEmail(user.plexEmail || '');
     setEditDialog({ isOpen: true, user });
   };
 
@@ -398,7 +404,12 @@ function AdminUsersPageContent() {
       setSaving(true);
       await fetchJSON(`/api/admin/users/${editDialog.user.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ role: editRole }),
+        body: JSON.stringify({
+          role: editRole,
+          ...(editDialog.user.authProvider === 'local' || editDialog.user.isSetupAdmin
+            ? { email: editEmail.trim() }
+            : {}),
+        }),
       });
       toast.success(`User "${editDialog.user.plexUsername}" updated successfully`);
       hideEditDialog();
@@ -837,7 +848,7 @@ function AdminUsersPageContent() {
               {/* Dialog header */}
               <div className="sticky top-0 bg-white dark:bg-gray-800 px-5 py-4 border-b border-gray-200 dark:border-gray-700 rounded-t-2xl flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Edit User Role
+                  Edit User
                 </h3>
                 <button
                   onClick={hideEditDialog}
@@ -876,46 +887,67 @@ function AdminUsersPageContent() {
                   </div>
                 </div>
 
-                {/* Role Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Role
-                  </label>
-                  <div className="space-y-2">
-                    <label className="flex items-start gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
-                      <input
-                        type="radio"
-                        name="role"
-                        value="user"
-                        checked={editRole === 'user'}
-                        onChange={(e) => setEditRole(e.target.value as 'user' | 'admin')}
-                        className="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 flex-shrink-0"
-                      />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">User</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          Can request audiobooks and view own requests
-                        </div>
-                      </div>
+                {(editDialog.user.authProvider === 'local' || editDialog.user.isSetupAdmin) && (
+                  <div>
+                    <label htmlFor="admin-user-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Email address
                     </label>
-                    <label className="flex items-start gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
-                      <input
-                        type="radio"
-                        name="role"
-                        value="admin"
-                        checked={editRole === 'admin'}
-                        onChange={(e) => setEditRole(e.target.value as 'user' | 'admin')}
-                        className="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 flex-shrink-0"
-                      />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Admin</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          Full system access including settings and user management
-                        </div>
-                      </div>
-                    </label>
+                    <input
+                      id="admin-user-email"
+                      type="email"
+                      value={editEmail}
+                      onChange={(event) => setEditEmail(event.target.value)}
+                      placeholder="No email"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Set an email to enable personal request notifications. Leave blank to clear it.
+                    </p>
                   </div>
-                </div>
+                )}
+
+                {/* Role Selection */}
+                {!editDialog.user.isSetupAdmin && editDialog.user.authProvider !== 'oidc' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Role
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-start gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                        <input
+                          type="radio"
+                          name="role"
+                          value="user"
+                          checked={editRole === 'user'}
+                          onChange={(e) => setEditRole(e.target.value as 'user' | 'admin')}
+                          className="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 flex-shrink-0"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">User</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Can request audiobooks and view own requests
+                          </div>
+                        </div>
+                      </label>
+                      <label className="flex items-start gap-3 p-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
+                        <input
+                          type="radio"
+                          name="role"
+                          value="admin"
+                          checked={editRole === 'admin'}
+                          onChange={(e) => setEditRole(e.target.value as 'user' | 'admin')}
+                          className="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 flex-shrink-0"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Admin</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Full system access including settings and user management
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Dialog footer */}

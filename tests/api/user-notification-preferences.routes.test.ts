@@ -23,6 +23,7 @@ describe('User notification preferences API', () => {
   it('returns the authenticated user preferences and email backend status', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       plexEmail: 'reader@example.com',
+      authProvider: 'local',
       notifyRequestPendingApproval: false,
       notifyRequestApproved: false,
       notifyRequestGrabbed: false,
@@ -37,6 +38,7 @@ describe('User notification preferences API', () => {
     const body = await response.json();
 
     expect(body.email).toBe('reader@example.com');
+    expect(body.emailEditable).toBe(true);
     expect(body.emailBackendEnabled).toBe(true);
     expect(body.preferences.notifyRequestAvailable).toBe(true);
   });
@@ -57,6 +59,44 @@ describe('User notification preferences API', () => {
       select: expect.any(Object),
     });
     expect(body.preferences).toEqual(preferences);
+  });
+
+  it('lets local users set or clear their email address', async () => {
+    authRequest.json.mockResolvedValue({ email: 'reader@example.com' });
+    prismaMock.user.findUnique.mockResolvedValue({ authProvider: 'local' });
+    prismaMock.user.update.mockResolvedValue({
+      plexEmail: 'reader@example.com',
+      notifyRequestPendingApproval: false,
+      notifyRequestApproved: false,
+      notifyRequestGrabbed: false,
+      notifyRequestAvailable: true,
+      notifyRequestError: false,
+      notifyRequestCancelled: false,
+    });
+
+    const { PUT } = await import('@/app/api/user/notification-preferences/route');
+    const response = await PUT({} as any);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'user-1' },
+        data: { plexEmail: 'reader@example.com' },
+      })
+    );
+    expect(body.email).toBe('reader@example.com');
+  });
+
+  it('does not let externally managed accounts change their email', async () => {
+    authRequest.json.mockResolvedValue({ email: 'reader@example.com' });
+    prismaMock.user.findUnique.mockResolvedValue({ authProvider: 'plex' });
+
+    const { PUT } = await import('@/app/api/user/notification-preferences/route');
+    const response = await PUT({} as any);
+
+    expect(response.status).toBe(403);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
   it('rejects non-boolean or unknown preference fields', async () => {

@@ -94,7 +94,7 @@ src/components/
 - Stats: Total/Active/Waiting/Completed/Failed/Cancelled requests
 - Active downloads section
 - Recent requests (last 5)
-- Email notification preferences (per-request event controls; uses Plex email)
+- Email notification preferences (optional local-account email entry; per-request event controls appear only when an email is configured)
 - Auto-refresh every 5s
 - Waiting stat shows awaiting_search and awaiting_import statuses
 

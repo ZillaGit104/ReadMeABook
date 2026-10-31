@@ -7,8 +7,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, requireAdmin, AuthenticatedRequest } from '@/lib/middleware/auth';
 import { prisma } from '@/lib/db';
 import { RMABLogger } from '@/lib/utils/logger';
+import { z } from 'zod';
 
 const logger = RMABLogger.create('API.Admin.Users');
+const EmailSchema = z.union([z.string().email(), z.literal('')]);
 
 export async function PUT(
   request: NextRequest,
@@ -19,12 +21,26 @@ export async function PUT(
       try {
         const { id } = await params;
         const body = await request.json();
-        const { role, autoApproveRequests, interactiveSearchAccess, downloadAccess } = body;
+        const { role, email, autoApproveRequests, interactiveSearchAccess, downloadAccess } = body;
 
         // Validate role
         if (!role || (role !== 'user' && role !== 'admin')) {
           return NextResponse.json(
             { error: 'Invalid role. Must be "user" or "admin"' },
+            { status: 400 }
+          );
+        }
+
+        if (req.user && id === req.user.sub && role !== req.user.role) {
+          return NextResponse.json(
+            { error: 'You cannot change your own role' },
+            { status: 403 }
+          );
+        }
+
+        if (email !== undefined && !EmailSchema.safeParse(email).success) {
+          return NextResponse.json(
+            { error: 'Invalid email. Provide a valid email address or an empty string to clear it.' },
             { status: 400 }
           );
         }
@@ -50,14 +66,6 @@ export async function PUT(
           return NextResponse.json(
             { error: 'Invalid downloadAccess. Must be a boolean or null' },
             { status: 400 }
-          );
-        }
-
-        // Prevent user from demoting themselves
-        if (req.user && id === req.user.sub) {
-          return NextResponse.json(
-            { error: 'You cannot change your own role' },
-            { status: 403 }
           );
         }
 
@@ -90,6 +98,13 @@ export async function PUT(
 
         // Detect if role is being changed
         const isRoleChange = targetUser.role !== role;
+
+        if (email !== undefined && targetUser.authProvider !== 'local' && !targetUser.isSetupAdmin) {
+          return NextResponse.json(
+            { error: 'Email can only be changed for local accounts' },
+            { status: 403 }
+          );
+        }
 
         // Prevent changing setup admin role (only if role is actually being changed)
         if (targetUser.isSetupAdmin && isRoleChange && role !== 'admin') {
@@ -128,7 +143,16 @@ export async function PUT(
         }
 
         // Prepare update data
-        const updateData: { role: string; autoApproveRequests?: boolean | null; interactiveSearchAccess?: boolean | null; downloadAccess?: boolean | null } = { role };
+        const updateData: {
+          role: string;
+          plexEmail?: string | null;
+          autoApproveRequests?: boolean | null;
+          interactiveSearchAccess?: boolean | null;
+          downloadAccess?: boolean | null;
+        } = { role };
+        if (email !== undefined) {
+          updateData.plexEmail = email.trim() || null;
+        }
         if (autoApproveRequests !== undefined) {
           updateData.autoApproveRequests = autoApproveRequests;
         }
@@ -146,6 +170,7 @@ export async function PUT(
           select: {
             id: true,
             plexUsername: true,
+            plexEmail: true,
             role: true,
             autoApproveRequests: true,
             interactiveSearchAccess: true,

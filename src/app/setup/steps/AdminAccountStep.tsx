@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 
 interface AdminAccountStepProps {
   adminUsername: string;
+  adminEmail: string;
   adminPassword: string;
   onUpdate: (field: string, value: string) => void;
   onNext: () => void;
@@ -18,13 +19,14 @@ interface AdminAccountStepProps {
 
 export function AdminAccountStep({
   adminUsername,
+  adminEmail,
   adminPassword,
   onUpdate,
   onNext,
   onBack,
 }: AdminAccountStepProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [errors, setErrors] = useState<{ username?: string; password?: string; confirm?: string }>({});
+  const [errors, setErrors] = useState<{ username?: string; email?: string; password?: string; confirm?: string }>({});
   const [allowWeakPassword, setAllowWeakPassword] = useState(false);
 
   // Fetch password policy
@@ -44,11 +46,15 @@ export function AdminAccountStep({
   }, []);
 
   const validate = () => {
-    const newErrors: { username?: string; password?: string; confirm?: string } = {};
+    const newErrors: { username?: string; email?: string; password?: string; confirm?: string } = {};
 
     // Validate username
     if (!adminUsername || adminUsername.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
+    }
+
+    if (adminEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail.trim())) {
+      newErrors.email = 'Enter a valid email address';
     }
 
     // Validate password
@@ -102,6 +108,28 @@ export function AdminAccountStep({
           )}
           <p className="mt-1 text-xs text-gray-500">
             This will be your local admin username (minimum 3 characters)
+          </p>
+        </div>
+
+        {/* Optional email for personal notifications */}
+        <div>
+          <label htmlFor="adminEmail" className="block text-sm font-medium text-gray-300 mb-2">
+            Email (optional)
+          </label>
+          <input
+            type="email"
+            id="adminEmail"
+            value={adminEmail}
+            onChange={(e) => onUpdate('adminEmail', e.target.value)}
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            placeholder="you@example.com"
+            autoComplete="email"
+          />
+          {errors.email && (
+            <p className="mt-1 text-sm text-red-400">{errors.email}</p>
+          )}
+          <p className="mt-1 text-xs text-gray-500">
+            Add an email to enable personal notifications about your requests. You can add or change it later in your profile.
           </p>
         </div>
 

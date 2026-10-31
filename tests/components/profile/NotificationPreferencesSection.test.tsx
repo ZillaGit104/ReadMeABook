@@ -34,10 +34,12 @@ describe('NotificationPreferencesSection', () => {
     fetchWithAuthMock
       .mockResolvedValueOnce(response({
         email: 'reader@example.com',
+        emailEditable: true,
         emailBackendEnabled: true,
         preferences,
       }))
       .mockResolvedValueOnce(response({
+        email: 'reader@example.com',
         preferences: { ...preferences, notifyRequestError: true },
       }));
 
@@ -62,5 +64,38 @@ describe('NotificationPreferencesSection', () => {
         })
       );
     });
+  });
+
+  it('hides notification categories until a local user adds an email', async () => {
+    const preferences = {
+      notifyRequestPendingApproval: false,
+      notifyRequestApproved: false,
+      notifyRequestGrabbed: false,
+      notifyRequestAvailable: true,
+      notifyRequestError: false,
+      notifyRequestCancelled: false,
+    };
+    fetchWithAuthMock
+      .mockResolvedValueOnce(response({
+        email: null,
+        emailEditable: true,
+        emailBackendEnabled: true,
+        preferences,
+      }))
+      .mockResolvedValueOnce(response({ email: 'reader@example.com', preferences }));
+
+    const { NotificationPreferencesSection } = await import(
+      '@/components/profile/NotificationPreferencesSection'
+    );
+    render(<NotificationPreferencesSection />);
+
+    expect(await screen.findByText(/Add an email address above/)).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Book is available' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Email address'), {
+      target: { value: 'reader@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save email' }));
+
+    expect(await screen.findByRole('checkbox', { name: 'Book is available' })).toBeInTheDocument();
   });
 });

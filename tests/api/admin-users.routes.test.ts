@@ -67,6 +67,83 @@ describe('Admin users routes', () => {
     expect(payload.user.role).toBe('admin');
   });
 
+  it('lets admins set or clear email addresses for local users', async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      isSetupAdmin: false,
+      authProvider: 'local',
+      plexUsername: 'user',
+      deletedAt: null,
+      role: 'user',
+    });
+    prismaMock.user.update.mockResolvedValueOnce({
+      id: 'u-email',
+      plexUsername: 'user',
+      plexEmail: null,
+      role: 'user',
+    });
+    const request = { json: vi.fn().mockResolvedValue({ role: 'user', email: '' }) };
+
+    const { PUT } = await import('@/app/api/admin/users/[id]/route');
+    const response = await PUT(request as any, { params: Promise.resolve({ id: 'u-email' }) });
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'u-email' },
+        data: expect.objectContaining({ plexEmail: null }),
+      })
+    );
+  });
+
+  it('rejects invalid emails and prevents editing provider-managed account emails', async () => {
+    const { PUT } = await import('@/app/api/admin/users/[id]/route');
+    const invalidRequest = { json: vi.fn().mockResolvedValue({ role: 'user', email: 'bad-email' }) };
+    const invalidResponse = await PUT(invalidRequest as any, {
+      params: Promise.resolve({ id: 'u-email' }),
+    });
+    expect(invalidResponse.status).toBe(400);
+
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      isSetupAdmin: false,
+      authProvider: 'plex',
+      plexUsername: 'plex-user',
+      deletedAt: null,
+      role: 'user',
+    });
+    const providerRequest = { json: vi.fn().mockResolvedValue({ role: 'user', email: 'user@example.com' }) };
+    const providerResponse = await PUT(providerRequest as any, {
+      params: Promise.resolve({ id: 'plex-user' }),
+    });
+
+    expect(providerResponse.status).toBe(403);
+  });
+
+  it('allows the setup admin to update their own email without changing their role', async () => {
+    authRequest.user = { sub: 'admin-1', role: 'admin' };
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      isSetupAdmin: true,
+      authProvider: 'plex',
+      plexUsername: 'setup-admin',
+      deletedAt: null,
+      role: 'admin',
+    });
+    prismaMock.user.update.mockResolvedValueOnce({
+      id: 'admin-1',
+      plexUsername: 'setup-admin',
+      plexEmail: 'admin@example.com',
+      role: 'admin',
+    });
+    const request = {
+      json: vi.fn().mockResolvedValue({ role: 'admin', email: 'admin@example.com' }),
+    };
+
+    const { PUT } = await import('@/app/api/admin/users/[id]/route');
+    const response = await PUT(request as any, { params: Promise.resolve({ id: 'admin-1' }) });
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).user.plexEmail).toBe('admin@example.com');
+  });
+
   it('rejects invalid roles', async () => {
     const request = { json: vi.fn().mockResolvedValue({ role: 'owner' }) };
 

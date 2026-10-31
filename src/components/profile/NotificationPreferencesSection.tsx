@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { fetchWithAuth } from '@/lib/utils/api';
 
 const preferenceOptions = [
@@ -32,6 +32,8 @@ const defaultPreferences: Preferences = {
 export function NotificationPreferencesSection() {
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences);
   const [email, setEmail] = useState<string | null>(null);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [emailEditable, setEmailEditable] = useState(false);
   const [emailBackendEnabled, setEmailBackendEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,6 +50,8 @@ export function NotificationPreferencesSection() {
       .then((data) => {
         if (!active) return;
         setEmail(data.email || null);
+        setEmailDraft(data.email || '');
+        setEmailEditable(Boolean(data.emailEditable));
         setEmailBackendEnabled(Boolean(data.emailBackendEnabled));
         setPreferences({ ...defaultPreferences, ...data.preferences });
       })
@@ -85,12 +89,41 @@ export function NotificationPreferencesSection() {
     }
   };
 
+  const saveEmail = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetchWithAuth('/api/user/notification-preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailDraft.trim() }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || result.error || 'Failed to save email');
+      setEmail(result.email || null);
+      setEmailDraft(result.email || '');
+      setPreferences({ ...defaultPreferences, ...result.preferences });
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save email');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  let introText = 'An email address is required to receive personal request alerts.';
+  if (email) {
+    introText = 'Choose which updates you receive for your requests.';
+  } else if (emailEditable) {
+    introText = 'Add an email address below to enable personal request alerts and choose which updates to receive.';
+  }
+
   return (
     <section>
       <div className="mb-5">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white">Email Notifications</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Choose which updates you receive for your requests.
+          {introText}
         </p>
       </div>
 
@@ -102,18 +135,52 @@ export function NotificationPreferencesSection() {
             </p>
           )}
 
-          {!loading && !loadFailed && (
+          {!loading && !loadFailed && emailEditable && (
+            <form onSubmit={saveEmail} className="space-y-2">
+              <label htmlFor="notification-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Email address
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  id="notification-email"
+                  type="email"
+                  autoComplete="email"
+                  value={emailDraft}
+                  onChange={(event) => setEmailDraft(event.target.value)}
+                  placeholder="you@example.com"
+                  className="min-w-0 flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white"
+                  aria-label="Email address"
+                />
+                <button
+                  type="submit"
+                  disabled={saving || emailDraft.trim() === (email || '')}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save email'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                An email address enables personal notifications about your requests. Leave it blank to disable personal email alerts.
+              </p>
+            </form>
+          )}
+
+          {!loading && !loadFailed && email && (
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              {email
-                ? `Notifications are sent to ${email}.`
-                : 'No email address is associated with your account, so email alerts cannot be delivered.'}
+              Notifications are sent to {email}.
               {!emailBackendEnabled && ' Email delivery is currently not configured by the administrator.'}
+            </p>
+          )}
+
+          {!loading && !loadFailed && !email && !emailEditable && (
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              No email address is associated with this account, so personal email alerts are unavailable.
             </p>
           )}
 
           {loading ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">Loading preferences...</p>
-          ) : (
+          ) : loadFailed ? null : email ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-700">
               {preferenceOptions.map(({ key, label }) => (
                 <label key={key} className="flex items-center justify-between gap-4 py-3">
@@ -129,7 +196,11 @@ export function NotificationPreferencesSection() {
                 </label>
               ))}
             </div>
-          )}
+          ) : emailEditable ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Add an email address above to configure your request notification preferences.
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

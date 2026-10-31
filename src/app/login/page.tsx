@@ -43,6 +43,7 @@ function LoginContent() {
   } | null>(null);
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [registerUsername, setRegisterUsername] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [alertModal, setAlertModal] = useState<{
@@ -363,6 +364,7 @@ function LoginContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: registerUsername,
+          email: registerEmail,
           password: registerPassword,
         }),
       });
@@ -635,6 +637,23 @@ function LoginContent() {
                           <p className="text-xs text-gray-500 mt-1">At least 3 characters</p>
                         </div>
                         <div>
+                          <label htmlFor="register-email" className="block text-sm font-medium text-gray-300 mb-2">
+                            Email (optional)
+                          </label>
+                          <input
+                            type="email"
+                            id="register-email"
+                            value={registerEmail}
+                            onChange={(e) => setRegisterEmail(e.target.value)}
+                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            placeholder="you@example.com"
+                            autoComplete="email"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Add an email to enable personal notifications about your requests. You can add or change it later in your profile.
+                          </p>
+                        </div>
+                        <div>
                           <label htmlFor="register-password" className="block text-sm font-medium text-gray-300 mb-2">
                             Password
                           </label>
@@ -685,6 +704,7 @@ function LoginContent() {
                                 setShowRegisterForm(false);
                                 setError(null);
                                 setRegisterUsername('');
+                                setRegisterEmail('');
                                 setRegisterPassword('');
                                 setRegisterConfirmPassword('');
                               }}

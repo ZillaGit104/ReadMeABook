@@ -47,7 +47,8 @@ Comprehensive overview of system metrics, active requests, download monitoring, 
 - User ID, Plex ID, username, email, role, avatar, created/updated dates, last login, request count, autoApproveRequests
 
 **PUT /api/admin/users/[id]**
-- Update user role (user/admin), autoApproveRequests (true/false/null)
+- Update user role (user/admin), email for local accounts (empty string clears it), autoApproveRequests (true/false/null)
+- Setup admins can update their email without changing their protected role; Plex/OIDC-managed email remains provider-managed.
 - Prevents self-demotion
 
 **GET /api/admin/settings/auto-approve**

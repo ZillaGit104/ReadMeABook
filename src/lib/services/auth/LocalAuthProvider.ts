@@ -17,6 +17,7 @@ import { getConfigService } from '@/lib/services/config.service';
 import { getEncryptionService } from '@/lib/services/encryption.service';
 import { prisma } from '@/lib/db';
 import { RMABLogger } from '@/lib/utils/logger';
+import { z } from 'zod';
 
 const logger = RMABLogger.create('LocalAuth');
 
@@ -28,6 +29,7 @@ interface LocalLoginParams extends CallbackParams {
 interface RegisterParams {
   username: string;
   password: string;
+  email?: string;
 }
 
 export class LocalAuthProvider implements IAuthProvider {
@@ -147,6 +149,10 @@ export class LocalAuthProvider implements IAuthProvider {
     try {
       const { username, password } = params;
       const normalizedUsername = username?.trim().toLowerCase();
+      if (params.email !== undefined && typeof params.email !== 'string') {
+        return { success: false, error: 'Email address is invalid' };
+      }
+      const normalizedEmail = params.email?.trim() || null;
 
       // Validate
       if (!normalizedUsername || normalizedUsername.length < 3) {
@@ -159,6 +165,9 @@ export class LocalAuthProvider implements IAuthProvider {
       }
       if (!allowWeakPassword && password.length < 8) {
         return { success: false, error: 'Password must be at least 8 characters' };
+      }
+      if (normalizedEmail && !z.string().email().safeParse(normalizedEmail).success) {
+        return { success: false, error: 'Email address is invalid' };
       }
 
       // Check if registration is enabled
@@ -199,6 +208,7 @@ export class LocalAuthProvider implements IAuthProvider {
         data: {
           plexId: `local-${normalizedUsername}`,
           plexUsername: normalizedUsername,
+          plexEmail: normalizedEmail,
           authToken: encryptedHash,
           authProvider: 'local',
           role: isFirstUser ? 'admin' : 'user',

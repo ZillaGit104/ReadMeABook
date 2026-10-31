@@ -19,6 +19,7 @@ const baseConfig = {
   authMethod: 'oidc' as const,
   oidcProviderName: 'Auth',
   adminUsername: 'admin',
+  adminEmail: '',
   prowlarrUrl: 'http://prowlarr.local',
   downloadClient: 'qbittorrent' as const,
   downloadClientUrl: 'http://qb.local',
