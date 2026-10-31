@@ -8,6 +8,7 @@ import { requireAuth, requireAdmin, AuthenticatedRequest } from '@/lib/middlewar
 import { prisma } from '@/lib/db';
 import { RMABLogger } from '@/lib/utils/logger';
 import { z } from 'zod';
+import { readJsonBody } from '@/lib/utils/request-body';
 
 const logger = RMABLogger.create('API.Admin.Users');
 const EmailSchema = z.union([z.string().email(), z.literal('')]);
@@ -20,7 +21,9 @@ export async function PUT(
     return requireAdmin(req, async () => {
       try {
         const { id } = await params;
-        const body = await request.json();
+        const bodyResult = await readJsonBody(request);
+        if (!bodyResult.ok) return bodyResult.response;
+        const body = bodyResult.data;
         const { role, email, autoApproveRequests, interactiveSearchAccess, downloadAccess } = body;
 
         // Validate role

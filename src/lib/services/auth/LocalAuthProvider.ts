@@ -18,6 +18,7 @@ import { getEncryptionService } from '@/lib/services/encryption.service';
 import { prisma } from '@/lib/db';
 import { RMABLogger } from '@/lib/utils/logger';
 import { z } from 'zod';
+import { getRegistrationRefusal, REJECTED_ACCOUNT_ERROR } from './local-account-status';
 
 const logger = RMABLogger.create('LocalAuth');
 
@@ -72,15 +73,16 @@ export class LocalAuthProvider implements IAuthProvider {
       }
 
       // Check registration status
-      if (user.registrationStatus === 'pending_approval') {
+      const refusal = getRegistrationRefusal(user.registrationStatus);
+      if (refusal === 'pending_approval') {
         return {
           success: false,
           requiresApproval: true,
         };
       }
 
-      if (user.registrationStatus === 'rejected') {
-        return { success: false, error: 'Account has been rejected' };
+      if (refusal === 'rejected') {
+        return { success: false, error: REJECTED_ACCOUNT_ERROR };
       }
 
       // Verify password
@@ -200,6 +202,7 @@ export class LocalAuthProvider implements IAuthProvider {
       const registrationStatus = requireApproval ? 'pending_approval' : 'approved';
 
       // Check if first user (make admin)
+      // Soft-deleted users count on purpose: a deleted account must never make the next sign-up an admin
       const userCount = await prisma.user.count();
       const isFirstUser = userCount === 0;
 
@@ -304,7 +307,7 @@ export class LocalAuthProvider implements IAuthProvider {
         return false;
       }
 
-      if (user.registrationStatus === 'pending_approval' || user.registrationStatus === 'rejected') {
+      if (getRegistrationRefusal(user.registrationStatus)) {
         return false;
       }
 
