@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   return requireAuth(request, async (req: AuthenticatedRequest) => {
     try {
-      const bodyResult = await readJsonBody(request);
+      const bodyResult = await readJsonBody(req);
       if (!bodyResult.ok) return bodyResult.response;
       const updates = UpdatePreferencesSchema.parse(bodyResult.data);
       const { email, ...preferenceUpdates } = updates;
