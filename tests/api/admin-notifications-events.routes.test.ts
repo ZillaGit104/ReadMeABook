@@ -27,6 +27,7 @@ vi.mock('@/lib/middleware/auth', () => ({
 
 vi.mock('@/lib/services/notification', () => ({
   getNotificationService: () => notificationServiceMock,
+  getProvider: () => undefined,
   getRegisteredProviderTypes: () => ['discord'],
 }));
 

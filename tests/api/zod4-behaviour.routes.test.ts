@@ -40,6 +40,7 @@ vi.mock('@/lib/services/notification', () => ({
     prepareSubmittedConfig: (_type: string, config: unknown) => ({ ok: true, config }),
     maskConfig: (_type: string, config: unknown) => config,
   }),
+  getProvider: () => undefined,
   getRegisteredProviderTypes: () => ['discord'],
 }));
 vi.mock('@/lib/services/goodreads-sync.service', () => ({

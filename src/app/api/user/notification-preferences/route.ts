@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { AuthenticatedRequest, requireAuth } from '@/lib/middleware/auth';
 import { RMABLogger } from '@/lib/utils/logger';
+import { readJsonBody } from '@/lib/utils/request-body';
 
 const logger = RMABLogger.create('API.User.NotificationPreferences');
 
@@ -79,7 +80,9 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   return requireAuth(request, async (req: AuthenticatedRequest) => {
     try {
-      const updates = UpdatePreferencesSchema.parse(await req.json());
+      const bodyResult = await readJsonBody(request);
+      if (!bodyResult.ok) return bodyResult.response;
+      const updates = UpdatePreferencesSchema.parse(bodyResult.data);
       const { email, ...preferenceUpdates } = updates;
       if (email !== undefined) {
         const account = await prisma.user.findUnique({

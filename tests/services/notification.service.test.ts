@@ -325,7 +325,7 @@ describe('NotificationService', () => {
 
       await expect(
         service.sendToBackend(
-          'email',
+          'unsupported-backend',
           {},
           {
             event: 'request_approved',
@@ -336,7 +336,7 @@ describe('NotificationService', () => {
             timestamp: new Date(),
           }
         )
-      ).rejects.toThrow('Unsupported backend type: email');
+      ).rejects.toThrow('Unsupported backend type: unsupported-backend');
     });
   });
 

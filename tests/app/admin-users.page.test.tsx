@@ -295,7 +295,7 @@ describe('AdminUsersPage', () => {
     await waitFor(() => {
       expect(fetchJSONMock).toHaveBeenCalledWith('/api/admin/users/u2', {
         method: 'PUT',
-        body: JSON.stringify({ role: 'admin' }),
+        body: JSON.stringify({ role: 'admin', email: 'local@example.com' }),
       });
       expect(mutateUsers).toHaveBeenCalled();
     });

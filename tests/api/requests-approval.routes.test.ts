@@ -466,6 +466,7 @@ describe('Request Approval Workflow', () => {
         select: {
           id: true,
           plexUsername: true,
+          plexEmail: true,
           role: true,
           autoApproveRequests: true,
           interactiveSearchAccess: true,
